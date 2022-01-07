@@ -52,7 +52,10 @@
 $ mvn install
 ```
 
-
+## 运行
+```shell
+$ nohup java -jar division_crawler-1.1.0.RELEASE.jar >> log.log 2>&1 &
+```
 
 ## 使用
 

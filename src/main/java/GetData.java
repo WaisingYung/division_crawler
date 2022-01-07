@@ -31,14 +31,19 @@ public class GetData {
 
     public static void main(String[] args) throws IOException {
         //线程池大小设为5，同时处理5个省的数据
-        ExecutorService pool = new ThreadPoolExecutor(5, 5, 1L, TimeUnit.MINUTES,
-                new LinkedBlockingQueue<>(30), Executors.defaultThreadFactory(), new ThreadPoolExecutor.AbortPolicy());
+        ExecutorService pool = new ThreadPoolExecutor(5, 5,
+                1L, TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(30),
+                Executors.defaultThreadFactory(),
+                new ThreadPoolExecutor.AbortPolicy());
+
         Document doc = Jsoup.connect(SITE_URL).get();
         //提取名为provincetr的tr标签,获取里面全部的a标签链接
         Elements links = doc.select("tr.provincetr").select("a");
         for (Element e : links) {
             pool.submit(new GetProvince(e));
         }
+        pool.shutdown();
     }
 
     /**
