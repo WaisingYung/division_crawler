@@ -15,14 +15,14 @@ import java.util.concurrent.*;
  * 获取国家统计局行政区划数据
  *
  * @author Waising Yung
- * @date 2021/11/2 10:16
+ * {@code @date} 2021/11/2 10:16
  */
 public class GetData {
 
     /**
      * 地址
      */
-    private static final String SITE_URL = "http://www.stats.gov.cn/tjsj/tjbz/tjyqhdmhcxhfdm/2020/index.html";
+    private static final String SITE_URL = "http://www.stats.gov.cn/tjsj/tjbz/tjyqhdmhcxhfdm/2021/index.html";
 
     /**
      * 重试次数
@@ -120,19 +120,32 @@ public class GetData {
         private static void getCounty(String url, DivisionEntity division) {
             try {
                 Document doc = connect(url);
+                boolean flag = true;
+                //广东省东莞市、中山市，海南省三沙市、儋州市、甘肃省嘉峪关市等五个城市，不设区县，市一级直接到乡镇一级
+                //link:https://view.inews.qq.com/a/20210913A0AV3G00
+                //这里使用市名作为区县名
                 Elements links = Objects.requireNonNull(doc).select("tr.countytr");
+                if (links.size() == 0) {
+                    links = Objects.requireNonNull(doc).select("tr.towntr");
+                    flag = false;
+                }
                 for (Element e : links) {
                     DivisionEntity county = new DivisionEntity();
                     Elements aList = e.select("a");
                     if (aList.size() > 0) {
-                        county.setCountyCode(aList.get(0).text().substring(0, 6));
-                        county.setCountyName(aList.get(1).text());
-                        String absHref = getAbsHref(aList.get(0));
+                        county.setCountyCode(flag ? aList.get(0).text().substring(0, 6) : division.getCityCode());
+                        county.setCountyName(flag ? aList.get(1).text() : division.getCityName());
+                        String absHref;
+                        if (flag) {
+                            absHref = getAbsHref(aList.get(0));
+                        } else {
+                            absHref = doc.baseUri();
+                        }
                         getTown(absHref, county);
                     } else {
                         aList = e.select("td");
-                        county.setCountyCode(aList.get(0).text().substring(0, 6));
-                        county.setCountyName(aList.get(1).text());
+                        county.setCountyCode(flag ? aList.get(0).text().substring(0, 6) : division.getCityCode());
+                        county.setCountyName(flag ? aList.get(1).text() : division.getCityName());
                     }
                     division.getSub().add(county);
                 }
@@ -257,7 +270,6 @@ public class GetData {
                         "province_code,city_name,city_code,county_name,county_code,town_name,town_code,village_name," +
                         "village_code,address_name,region_type,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
                 System.out.println("start to insert " + division.getProvinceName() + " data");
-                long startTime = System.currentTimeMillis();
                 for (DivisionEntity city : division.getSub()) {
                     String provinceName = division.getProvinceName();
                     String provinceCode = division.getProvinceCode();
@@ -291,8 +303,6 @@ public class GetData {
                 }
                 statement.executeBatch();
                 connection.commit();
-                long endTime = System.currentTimeMillis();
-                System.out.println("elapsed time:" + (endTime - startTime));
             } catch (SQLException | ClassNotFoundException e) {
                 e.printStackTrace();
             } finally {
